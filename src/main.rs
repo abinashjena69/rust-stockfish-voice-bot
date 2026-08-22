@@ -337,7 +337,6 @@ fn detect_tactical_motive(pos_before: &Chess, pos_after: &Chess, m: &shakmaty::M
             let target_defended = is_square_attacked(&pos_after, target_sq, enemy_color);
             let my_val = piece_value(m.role()); let enemy_val = piece_value(target_role);
             
-            // PERFECT THREAT HIERARCHY
             if my_val == enemy_val && enemy_val > 0 { secondary.push(format!("challenges {} {} to a trade", target_prefix, piece_name(target_role))); }
             else if my_val < enemy_val { secondary.push(format!("threatens {} {}", target_prefix, piece_name(target_role))); }
             else if !target_defended { secondary.push(format!("attacks {} undefended {}", target_prefix, piece_name(target_role))); }
@@ -513,7 +512,7 @@ fn run_post_game_review(move_history: &[String], san_history: &[String], live_ev
         }
 
         let mut cat = "Best";
-        if ply < 4 { cat = "Book"; }
+        if ply < 6 { cat = "Book"; }
         else if san == &best_san { cat = "Best"; }
         else if loss <= 15 { cat = "Excellent"; }
         else if loss <= 40 { cat = "Good"; }
@@ -574,7 +573,7 @@ fn run_post_game_review(move_history: &[String], san_history: &[String], live_ev
 fn main() {
     let stockfish_path = "stockfish"; 
     println!("========================================");
-    println!("   RUST STOCKFISH VOICE-BOT (V45)       ");
+    println!("   RUST STOCKFISH VOICE-BOT (V45.1)     ");
     println!("========================================");
 
     let mut voice_enabled = true;
@@ -700,7 +699,10 @@ fn main() {
                         let next_eval = evaluate_realtime_move(&mut stdin, &mut reader, &move_history, search_depth, pos.turn().is_white());
                         live_evals_data.push(next_eval);
                         
-                        print_board(&pos); println!("> Registered move: **{}** [⭐ Best]\n", san_output); break;
+                        print_board(&pos); 
+                        // FIX: Added opening book recognition for instant accept
+                        let cat = if move_history.len() <= 6 { "[📖 Book Move]" } else { "[⭐ Best]" };
+                        println!("> Registered move: **{}** {}\n", san_output, cat); break;
                     }
                 } else if raw_cmd == " " || raw_cmd == "v" { 
                     let spoken = listen_for_move();
@@ -742,11 +744,12 @@ fn main() {
                     
                     let mut loss = if pos.turn().is_white() { eval_before - eval_after } else { eval_after - eval_before };
                     if loss < 0 { loss = 0; }
-                    let category = if loss <= 15 { "[⭐ Best]" } else if loss <= 40 { "[👍 Good]" } else if loss <= 90 { "[?! Inaccuracy]" } else if loss <= 200 { "[❓ Mistake]" } else { "[❌ Blunder]" };
                     
-                    // FIX: Live Game Reason Note Added
+                    // FIX: Live Game Book Recognition
+                    let category = if move_history.len() <= 6 { "[📖 Book Move]" } else if loss <= 15 { "[⭐ Best]" } else if loss <= 40 { "[👍 Good]" } else if loss <= 90 { "[?! Inaccuracy]" } else if loss <= 200 { "[❓ Mistake]" } else { "[❌ Blunder]" };
+                    
                     let mut reason_str = String::new();
-                    if loss > 40 {
+                    if loss > 40 && move_history.len() > 6 {
                         let p_before = if pos.turn().is_white() { eval_before } else { -eval_before };
                         let p_after = if pos.turn().is_white() { eval_after } else { -eval_after };
                         if p_after < -9000 { reason_str = " (Allows forced checkmate)".to_string(); }
@@ -762,7 +765,7 @@ fn main() {
                     pos = next_pos; san_history.push(actual_san.clone()); print_board(&pos);
                     println!("> Registered your move: **{}{}** {}{}", actual_san, check_text, category, reason_str);
 
-                    if loss > 100 {
+                    if loss > 100 && move_history.len() > 6 {
                         let mut punish_san = punishment_uci.clone();
                         if let Ok(p_uci) = punishment_uci.parse::<UciMove>() {
                             if let Ok(pm) = p_uci.to_move(&pos) { punish_san = San::from_move(&pos, &pm).to_string(); }
@@ -848,11 +851,11 @@ fn main() {
                     let mut loss = if pos.turn().is_white() { eval_before - eval_after } else { eval_after - eval_before };
                     if loss < 0 { loss = 0; }
 
-                    let category = if loss <= 15 { "[⭐ Best]" } else if loss <= 40 { "[👍 Good]" } else if loss <= 90 { "[?! Inaccuracy]" } else if loss <= 200 { "[❓ Mistake]" } else { "[❌ Blunder]" };
+                    // FIX: Live Game Book Recognition (Opponent)
+                    let category = if move_history.len() <= 6 { "[📖 Book Move]" } else if loss <= 15 { "[⭐ Best]" } else if loss <= 40 { "[👍 Good]" } else if loss <= 90 { "[?! Inaccuracy]" } else if loss <= 200 { "[❓ Mistake]" } else { "[❌ Blunder]" };
                     
-                    // FIX: Live Game Reason Note Added
                     let mut reason_str = String::new();
-                    if loss > 40 {
+                    if loss > 40 && move_history.len() > 6 {
                         let p_before = if pos.turn().is_white() { eval_before } else { -eval_before };
                         let p_after = if pos.turn().is_white() { eval_after } else { -eval_after };
                         if p_after < -9000 { reason_str = " (Allows forced checkmate)".to_string(); }
@@ -871,7 +874,7 @@ fn main() {
                     println!("> Processed Move: **{}{}** {}{}", actual_san, check_text, category, reason_str);
                     println!("💡 Idea: {}", idea);
 
-                    if loss > 100 {
+                    if loss > 100 && move_history.len() > 6 {
                         let mut punish_san = punish_uci.clone();
                         if let Ok(p_uci) = punish_uci.parse::<UciMove>() {
                             if let Ok(pm) = p_uci.to_move(&pos) { punish_san = San::from_move(&pos, &pm).to_string(); }
@@ -889,5 +892,5 @@ fn main() {
     save_pgn(&san_history);
     print!("\nGenerate Post-Game Analysis Review? (y/n): "); io::stdout().flush().unwrap();
     let mut review_input = String::new(); io::stdin().read_line(&mut review_input).unwrap();
-if review_input.trim().eq_ignore_ascii_case("y") { run_post_game_review(&move_history, &san_history, &live_evals_data); }
+    if review_input.trim().eq_ignore_ascii_case("y") { run_post_game_review(&move_history, &san_history, &live_evals_data); }
 }
