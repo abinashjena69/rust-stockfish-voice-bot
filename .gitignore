@@ -1,0 +1,11 @@
+# Cargo build directory
+/target/
+
+# Local Stockfish engine
+stockfish
+
+# Saved games
+saved_game.pgn
+
+# OS generated files
+.DS_Store
