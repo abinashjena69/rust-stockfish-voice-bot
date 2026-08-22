@@ -10,7 +10,7 @@ A professional-grade, voice-controlled chess assistant built in Rust, powered by
 * **Auto-Save:** Automatically saves your completed matches to a standard `.pgn` file.
 
 ## 📋 Prerequisites
-Before installing, ensure you have the following two apps installed on your Android device from **F-Droid** (Do not use the Google Play Store versions, as they are outdated):
+Before installing, ensure you have the following two apps installed on your Android device from **F-Droid** or **GitHub** (Do not use the Google Play Store versions, as they are outdated):
 1. **Termux** (The terminal emulator)
 2. **Termux:API** (Required to allow the app to use your microphone and text-to-speech)
 
